@@ -1,230 +1,181 @@
 import os
-import re
 import json
-from collections import Counter
-from flask import Flask, request, jsonify
+import re
 import requests
-from openai import OpenAI
+import feedparser
+from urllib.parse import quote_plus
+from flask import Flask, request, jsonify
 from flask_cors import CORS
+from openai import OpenAI
 
 # --------------------------
 # CONFIG
 # --------------------------
-NEWS_API_KEY = os.getenv("NEWS_API_KEY") or '7ba4e28621ff4d1f8740421b5004fea0'    # NewsAPI key
-OPENAI_API_KEY = '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'  # OpenAI key
+NEWS_API_KEY = '7ba4e28621ff4d1f8740421b5004fea0'
+OPENAI_API_KEY = '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' 
+PAGE_SIZE = 30
 
-FROM_DATE = "2025-12-09"
-PAGE_SIZE = 50  # fetch enough articles
-
-# Initialize Flask
+# --------------------------
+# FLASK APP
+# --------------------------
 app = Flask(__name__)
-CORS(
-    app,
-    resources={
-        r"/api/*": {
-            "origins": ["http://localhost:5173"]
-        }
-    }
-)
+CORS(app, resources={r"/api/*": {"origins": ["http://localhost:5173"]}})
 
-# Initialize OpenAI client
 client = OpenAI(api_key=OPENAI_API_KEY)
 
 # --------------------------
-# HELPER FUNCTIONS
+# FETCH ARTICLES (URL SAFE)
 # --------------------------
+def fetch_articles(keyword):
+    """
+    Try NewsAPI (free tier). If empty, fallback to Google News RSS.
+    Expand generic lifestyle keywords automatically.
+    """
 
-def fetch_articles(keyword, from_date, page_size=50):
-    url = "https://newsapi.org/v2/everything"
-    params = {
-        "q": keyword,
-        "from": from_date,
-        "sortBy": "publishedAt",
-        "language": "en",
-        "pageSize": page_size,
-        "apiKey": NEWS_API_KEY
+    expanded_query_map = {
+        "travel": "travel OR tourism OR flights OR hotels OR airlines OR vacation",
+        "food": "food OR dining OR restaurant OR chef",
+        "music": "music OR concert OR festival OR tour"
     }
 
-    response = requests.get(url, params=params)
-    response.raise_for_status()
-    return response.json().get("articles", [])
+    raw_query = expanded_query_map.get(keyword.lower(), keyword)
+    encoded_query = quote_plus(raw_query)
 
-def generate_brand_keywords(brand_description, num_keywords=12):
+    # ---- Attempt 1: NewsAPI top-headlines ----
+    try:
+        url = "https://newsapi.org/v2/top-headlines"
+        params = {
+            "q": raw_query,  # NewsAPI accepts raw query
+            "language": "en",
+            "pageSize": PAGE_SIZE,
+            "apiKey": NEWS_API_KEY
+        }
+
+        response = requests.get(url, params=params, timeout=10)
+        response.raise_for_status()
+        articles = response.json().get("articles", [])
+
+        if articles:
+            return articles
+    except Exception as e:
+        print("NewsAPI failed:", e)
+
+    # ---- Attempt 2: Google News RSS fallback ----
+    feed_url = (
+        "https://news.google.com/rss/search"
+        f"?q={encoded_query}&hl=en-US&gl=US&ceid=US:en"
+    )
+
+    feed = feedparser.parse(feed_url)
+
+    articles = []
+    for entry in feed.entries[:PAGE_SIZE]:
+        articles.append({
+            "title": entry.title,
+            "description": entry.get("summary", ""),
+            "url": entry.link,
+            "publishedAt": entry.get("published", "")
+        })
+
+    return articles
+
+# --------------------------
+# SAFE JSON PARSER
+# --------------------------
+def safe_json_parse(text):
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError:
+        match = re.search(r"\[.*\]", text, re.S)
+        if match:
+            return json.loads(match.group())
+        raise ValueError("LLM did not return valid JSON")
+
+# --------------------------
+# TREND EXTRACTION (LLM)
+# --------------------------
+def extract_marketing_trends(keyword, articles):
+    if not articles:
+        return []
+
+    print(f"\nArticles found for '{keyword}': {len(articles)}")
+
+    article_text = "\n".join(
+        f"- {a['title']}: {a.get('description', '')}"
+        for a in articles[:15]
+    )
+
     prompt = f"""
-                You are a marketing strategist for Mastercard.
-                Based on the brand description below, generate a list of {num_keywords} keywords or short phrases
-                that represent topics and trends suitable for Mastercard marketing campaigns.
-                Return ONLY a valid JSON array of strings. No explanation. No markdown.
+Identify the TOP 3 current or emerging trends related to "{keyword}"
+that Mastercard could realistically build a marketing campaign around.
 
-                Brand description:
-                {brand_description}
-                """
+Guidelines:
+- Trends should be specific themes, behaviors, or experiences
+- Focus on commerce, payments, lifestyle, or access
+- Mastercard must feel like a natural fit
+
+Return ONLY valid JSON in this exact format:
+[
+  {{
+    "trend": "",
+    "why_it_matters": "",
+    "mastercard_campaign_idea": ""
+  }}
+]
+
+Articles:
+{article_text}
+"""
 
     response = client.chat.completions.create(
         model="gpt-4o-mini",
         messages=[
-            {"role": "system", "content": "You are a senior marketing strategist."},
+            {
+                "role": "system",
+                "content": (
+                    "You are a JSON API. "
+                    "Return valid JSON only. "
+                    "No markdown. No explanation."
+                )
+            },
             {"role": "user", "content": prompt}
         ],
+        temperature=0
     )
 
-    keywords_text = response.choices[0].message.content.strip()
-    print("LLM OUTPUT:", keywords_text)
+    raw_output = response.choices[0].message.content.strip()
+    print("\n--- RAW LLM OUTPUT ---\n", raw_output)
 
-    return json.loads(keywords_text)
-
-def extract_keywords(text):
-    text = text.lower()
-    text = re.sub(r"[^a-z\s]", "", text)
-    return text.split()
-
-
-def score_article_for_brand(article, brand_keywords):
-    title = article.get("title") or ""
-    description = article.get("description") or ""
-
-    text = f"{title} {description}".lower()
-    return any(k.lower() in text for k in brand_keywords)
-
-
-# def detect_trends(articles, brand_keywords, top_n=3):
-#     brand_articles = [a for a in articles if score_article_for_brand(a, brand_keywords)]
-
-#     print('brand_articles: {}'.format(brand_keywords))
-
-#     if not brand_articles:
-#         return []
-
-#     all_words = []
-#     for article in brand_articles:
-#         all_words.extend(extract_keywords(article.get("title", "")))
-
-#     counter = Counter(all_words)
-#     top_keywords = [kw for kw, _ in counter.most_common(top_n)]
-
-#     top_trends = []
-#     for kw in top_keywords:
-#         for article in brand_articles:
-#             if kw in extract_keywords(article.get("title", "")):
-#                 top_trends.append({
-#                     "trend": kw,
-#                     "title": article.get("title"),
-#                     "description": article.get("description"),
-#                     "url": article.get("url"),
-#                     "publishedAt": article.get("publishedAt")
-#                 })
-#                 break
-
-#     return top_trends
-
-from collections import Counter
-
-def detect_trends(articles, brand_keywords, top_n=3):
-    # 1. Expand brand intent terms (important)
-    brand_terms = brand_keywords + [
-        "payment", "payments", "card", "credit card",
-        "digital wallet", "wallet", "tap to pay",
-        "contactless", "cashless", "rewards",
-        "loyalty", "travel", "dining",
-        "bank", "banking", "fintech"
-    ]
-
-    # 2. Filter brand-related articles
-    brand_articles = []
-    for article in articles:
-        title = article.get("title") or ""
-        description = article.get("description") or ""
-        text = f"{title} {description}".lower()
-
-        if any(term.lower() in text for term in brand_terms):
-            brand_articles.append(article)
-
-    print("brand_articles count:", len(brand_articles))
-
-    if not brand_articles:
-        return []
-
-    # 3. Extract keywords once per article
-    all_keywords = []
-    article_keyword_map = []
-
-    for article in brand_articles:
-        title = article.get("title") or ""
-        description = article.get("description") or ""
-        combined_text = f"{title} {description}"
-
-        keywords = extract_keywords(combined_text)
-        article_keyword_map.append((article, keywords))
-        all_keywords.extend(keywords)
-
-    # 4. Find top keywords
-    counter = Counter(all_keywords)
-    top_keywords = [kw for kw, _ in counter.most_common(top_n)]
-
-    # 5. Map keywords back to representative articles
-    top_trends = []
-    for kw in top_keywords:
-        kw_lower = kw.lower()
-
-        for article, keywords in article_keyword_map:
-            if kw_lower in (k.lower() for k in keywords):
-                top_trends.append({
-                    "trend": kw,
-                    "title": article.get("title"),
-                    "description": article.get("description"),
-                    "url": article.get("url"),
-                    "publishedAt": article.get("publishedAt")
-                })
-                break
-
-    return top_trends
-
+    return safe_json_parse(raw_output)
 
 # --------------------------
-# FLASK ENDPOINT
+# API ENDPOINT
 # --------------------------
-
 @app.route("/api/trending-topics", methods=["GET"])
 def trending_topics():
-    # 1. Get keyword from frontend query params
     keyword = request.args.get("keyword", "").strip()
 
     if not keyword:
         return jsonify({"error": "Keyword parameter is required"}), 400
-    
 
-    # 2. Dynamic Mastercard brand keywords
-    brand_description = """
-                        Mastercard brand values:
-                        - Priceless experiences
-                        - Rewards for lifestyle, travel, and dining
-                        - Convenience, digital payments, and mobile-first experiences
-                        """
     try:
-        brand_keywords = generate_brand_keywords(brand_description)
+        articles = fetch_articles(keyword)
     except Exception as e:
-        return jsonify({"error": f"Failed to generate brand keywords: {str(e)}"}), 500
+        return jsonify({"error": f"News fetch failed: {str(e)}"}), 500
 
-
-    # 3. Fetch articles from NewsAPI
     try:
-        articles = fetch_articles(keyword, FROM_DATE, PAGE_SIZE)
+        trends = extract_marketing_trends(keyword, articles)
     except Exception as e:
-        return jsonify({"error": f"Failed to fetch articles: {str(e)}"}), 500
-    
-    # 4. Detect top 3 trends
-    print('articles: {}'.format(articles))
-    print('brand_keywords: {}'.format(brand_keywords))
-    top_trends = detect_trends(articles, brand_keywords, top_n=3)
+        return jsonify({"error": f"Trend extraction failed: {str(e)}"}), 500
 
     return jsonify({
         "keyword": keyword,
-        "brand_keywords": brand_keywords,
-        "top_trends": top_trends
+        "article_count": len(articles),
+        "top_trends": trends
     })
 
 # --------------------------
-# RUN FLASK APP
+# RUN SERVER
 # --------------------------
 if __name__ == "__main__":
     app.run(debug=True)
