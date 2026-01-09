@@ -14,6 +14,7 @@ from openai import OpenAI
 NEWS_API_KEY = '7ba4e28621ff4d1f8740421b5004fea0'
 OPENAI_API_KEY = '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' 
 PAGE_SIZE = 30
+MAX_ARTICLES_PER_TREND = 3  # number of articles to attach per trend
 
 # --------------------------
 # FLASK APP
@@ -24,14 +25,13 @@ CORS(app, resources={r"/api/*": {"origins": ["http://localhost:5173"]}})
 client = OpenAI(api_key=OPENAI_API_KEY)
 
 # --------------------------
-# FETCH ARTICLES (URL SAFE)
+# FETCH ARTICLES
 # --------------------------
 def fetch_articles(keyword):
     """
     Try NewsAPI (free tier). If empty, fallback to Google News RSS.
-    Expand generic lifestyle keywords automatically.
+    Expand some common lifestyle keywords automatically.
     """
-
     expanded_query_map = {
         "travel": "travel OR tourism OR flights OR hotels OR airlines OR vacation",
         "food": "food OR dining OR restaurant OR chef",
@@ -45,16 +45,14 @@ def fetch_articles(keyword):
     try:
         url = "https://newsapi.org/v2/top-headlines"
         params = {
-            "q": raw_query,  # NewsAPI accepts raw query
+            "q": raw_query,
             "language": "en",
             "pageSize": PAGE_SIZE,
             "apiKey": NEWS_API_KEY
         }
-
         response = requests.get(url, params=params, timeout=10)
         response.raise_for_status()
         articles = response.json().get("articles", [])
-
         if articles:
             return articles
     except Exception as e:
@@ -65,18 +63,16 @@ def fetch_articles(keyword):
         "https://news.google.com/rss/search"
         f"?q={encoded_query}&hl=en-US&gl=US&ceid=US:en"
     )
-
     feed = feedparser.parse(feed_url)
-
     articles = []
     for entry in feed.entries[:PAGE_SIZE]:
         articles.append({
             "title": entry.title,
             "description": entry.get("summary", ""),
             "url": entry.link,
-            "publishedAt": entry.get("published", "")
+            "publishedAt": entry.get("published", ""),
+            "source": entry.get("source", "")  # RSS may not have source
         })
-
     return articles
 
 # --------------------------
@@ -92,7 +88,7 @@ def safe_json_parse(text):
         raise ValueError("LLM did not return valid JSON")
 
 # --------------------------
-# TREND EXTRACTION (LLM)
+# TREND EXTRACTION (LLM) IMPROVED
 # --------------------------
 def extract_marketing_trends(keyword, articles):
     if not articles:
@@ -146,7 +142,62 @@ Articles:
     raw_output = response.choices[0].message.content.strip()
     print("\n--- RAW LLM OUTPUT ---\n", raw_output)
 
-    return safe_json_parse(raw_output)
+    # Parse GPT output
+    llm_trends = safe_json_parse(raw_output)
+
+    # --------------------------
+    # Assign unique articles to trends
+    # --------------------------
+    used_articles = set()  # track URLs we already assigned
+
+    for trend_obj in llm_trends:
+        trend_name = trend_obj["trend"].lower()
+        assigned = False
+
+        for a in articles:
+            text = f"{a['title']} {a.get('description','')}".lower()
+            url = a['url']
+
+            if trend_name in text and url not in used_articles:
+                trend_obj["article_sample"] = {
+                    "title": a["title"],
+                    "description": a.get("description", ""),
+                    "url": url,
+                    "publishedAt": a.get("publishedAt", ""),
+                    "source": a.get("source", {}).get("name", "") if isinstance(a.get("source"), dict) else a.get("source", "")
+                }
+                used_articles.add(url)
+                assigned = True
+                break
+
+        # Fallback: attach first unused article
+        if not assigned:
+            for a in articles:
+                url = a['url']
+                if url not in used_articles:
+                    trend_obj["article_sample"] = {
+                        "title": a["title"],
+                        "description": a.get("description", ""),
+                        "url": url,
+                        "publishedAt": a.get("publishedAt", ""),
+                        "source": a.get("source", {}).get("name", "") if isinstance(a.get("source"), dict) else a.get("source", "")
+                    }
+                    used_articles.add(url)
+                    assigned = True
+                    break
+
+        # Last fallback: if all articles used, just attach the first one
+        if not assigned and articles:
+            a = articles[0]
+            trend_obj["article_sample"] = {
+                "title": a["title"],
+                "description": a.get("description", ""),
+                "url": a["url"],
+                "publishedAt": a.get("publishedAt", ""),
+                "source": a.get("source", {}).get("name", "") if isinstance(a.get("source"), dict) else a.get("source", "")
+            }
+
+    return llm_trends
 
 # --------------------------
 # API ENDPOINT
@@ -154,7 +205,6 @@ Articles:
 @app.route("/api/trending-topics", methods=["GET"])
 def trending_topics():
     keyword = request.args.get("keyword", "").strip()
-
     if not keyword:
         return jsonify({"error": "Keyword parameter is required"}), 400
 

@@ -93,6 +93,28 @@ export const generateCampaignPDF = (topics: TrendTopic[], articleCount: number, 
     pdf.text(titleLines, margin, yPosition);
     yPosition += titleLines.length * 8 + 10;
 
+    pdf.setFillColor(245, 245, 245);
+    pdf.roundedRect(margin, yPosition, contentWidth, 18, 3, 3, 'F');
+    pdf.setFontSize(9);
+    pdf.setFont('helvetica', 'bold');
+    pdf.setTextColor(80, 80, 80);
+    pdf.text('Source Article', margin + 5, yPosition + 6);
+
+    pdf.setFontSize(8);
+    pdf.setFont('helvetica', 'normal');
+    pdf.setTextColor(60, 60, 60);
+    const cleanTitle = topic.article_sample.title.replace(' - PR Newswire', '').replace(/- [A-Za-z\s]+$/, '');
+    const articleTitleLines = pdf.splitTextToSize(cleanTitle, contentWidth - 10);
+    pdf.text(articleTitleLines.slice(0, 1), margin + 5, yPosition + 11);
+
+    const articleDate = new Date(topic.article_sample.publishedAt).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    });
+    pdf.text(`Published: ${articleDate}`, margin + 5, yPosition + 15);
+    yPosition += 25;
+
     pdf.setFontSize(12);
     pdf.setFont('helvetica', 'bold');
     pdf.setTextColor(0, 0, 0);

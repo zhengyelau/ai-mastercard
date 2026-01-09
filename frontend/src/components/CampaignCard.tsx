@@ -1,4 +1,4 @@
-import { Lightbulb, CheckCircle2, Hash, Sparkles } from 'lucide-react';
+import { Lightbulb, CheckCircle2, Hash, Sparkles, ExternalLink, Calendar } from 'lucide-react';
 import type { TrendTopic } from '../services/api';
 
 interface CampaignCardProps {
@@ -52,6 +52,34 @@ export default function CampaignCard({ topic, selected, onToggle }: CampaignCard
           <p className="text-sm text-gray-700 leading-relaxed">
             {topic.mastercard_campaign_idea}
           </p>
+        </div>
+
+        <div className="bg-gradient-to-r from-slate-50 to-slate-100 rounded-lg p-4 border border-slate-200">
+          <div className="flex items-start gap-2 mb-2">
+            <ExternalLink className="w-4 h-4 text-slate-600 mt-0.5 flex-shrink-0" />
+            <h4 className="text-sm font-bold text-slate-900">Source Article</h4>
+          </div>
+          <p className="text-xs font-semibold text-gray-800 mb-2 line-clamp-2">
+            {topic.article_sample.title.replace(' - PR Newswire', '').replace(/- [A-Za-z\s]+$/, '')}
+          </p>
+          <div className="flex items-center gap-2 text-xs text-gray-600 mb-2">
+            <Calendar className="w-3 h-3" />
+            <span>{new Date(topic.article_sample.publishedAt).toLocaleDateString('en-US', {
+              year: 'numeric',
+              month: 'short',
+              day: 'numeric'
+            })}</span>
+          </div>
+          <a
+            href={topic.article_sample.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={(e) => e.stopPropagation()}
+            className="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 font-medium transition-colors"
+          >
+            Read full article
+            <ExternalLink className="w-3 h-3" />
+          </a>
         </div>
       </div>
 

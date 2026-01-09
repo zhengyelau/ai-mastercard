@@ -1,9 +1,18 @@
 import axios, { AxiosError } from 'axios';
 
+export interface ArticleSample {
+  description: string;
+  publishedAt: string;
+  source: string;
+  title: string;
+  url: string;
+}
+
 export interface TrendTopic {
   trend: string;
   why_it_matters: string;
   mastercard_campaign_idea: string;
+  article_sample: ArticleSample;
 }
 
 export interface TrendingTopicsResponse {
