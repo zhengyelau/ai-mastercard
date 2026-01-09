@@ -27,6 +27,7 @@ function App() {
 
     try {
       const response = await getTrendingTopics(keyword);
+      console.log('response: ' + JSON.stringify(response))
       setTopics(response.topics);
       setSelectedTopics(new Set(response.topics.map(t => t.id)));
     } catch (err) {

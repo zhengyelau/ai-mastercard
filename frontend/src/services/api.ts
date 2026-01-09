@@ -26,7 +26,7 @@ export interface ApiError {
   statusCode?: number;
 }
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:5000/api';
 
 export const getTrendingTopics = async (keyword: string): Promise<TrendingTopicsResponse> => {
   if (!keyword || keyword.trim().length === 0) {
@@ -34,20 +34,22 @@ export const getTrendingTopics = async (keyword: string): Promise<TrendingTopics
   }
 
   try {
-    const response = await axios.post<TrendingTopicsResponse>(
+    const response = await axios.get<TrendingTopicsResponse>(
       `${API_BASE_URL}/trending-topics`,
-      { keyword: keyword.trim() },
       {
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        params: { keyword: keyword.trim() }, // send keyword as query param
         timeout: 30000,
+        headers: {
+          'Content-Type': 'application/json', // optional for GET
+        },
       }
     );
 
     if (!response.data || !response.data.topics || !Array.isArray(response.data.topics)) {
       throw new Error('Invalid response format from server');
     }
+
+    console.log('responseaaa: ' + JSON.stringify(response))
 
     return response.data;
   } catch (error) {
