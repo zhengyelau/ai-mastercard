@@ -1,95 +1,78 @@
-import { TrendingUp, Target, Users, Lightbulb, CheckCircle2 } from 'lucide-react';
-import type { CampaignTopic } from '../services/api';
+import { TrendingUp, Calendar, ExternalLink, CheckCircle2, Hash } from 'lucide-react';
+import type { TrendTopic } from '../services/api';
 
 interface CampaignCardProps {
-  topic: CampaignTopic;
+  topic: TrendTopic;
   selected: boolean;
   onToggle: () => void;
 }
 
 export default function CampaignCard({ topic, selected, onToggle }: CampaignCardProps) {
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    });
+  };
+
   return (
     <div
-      onClick={onToggle}
-      className={`relative bg-white rounded-xl shadow-lg p-6 cursor-pointer transition-all duration-300 hover:shadow-xl border-2 ${
+      className={`relative bg-white rounded-xl shadow-lg p-6 transition-all duration-300 hover:shadow-xl border-2 ${
         selected ? 'border-blue-500 ring-4 ring-blue-100' : 'border-gray-200'
       }`}
     >
-      {selected && (
-        <div className="absolute top-4 right-4">
-          <CheckCircle2 className="w-6 h-6 text-blue-500" />
-        </div>
-      )}
+      <div
+        onClick={onToggle}
+        className="cursor-pointer"
+      >
+        {selected && (
+          <div className="absolute top-4 right-4">
+            <CheckCircle2 className="w-6 h-6 text-blue-500" />
+          </div>
+        )}
 
-      <div className="flex items-start justify-between mb-4">
-        <div className="flex-1">
-          <div className="flex items-center gap-2 mb-2">
-            <span className="px-3 py-1 bg-blue-50 text-blue-700 text-xs font-semibold rounded-full">
-              {topic.category}
+        <div className="mb-4">
+          <div className="flex items-center gap-2 mb-3">
+            <span className="px-3 py-1 bg-gradient-to-r from-green-50 to-green-100 text-green-700 text-xs font-semibold rounded-full border border-green-200 flex items-center gap-1">
+              <Hash className="w-3 h-3" />
+              {topic.trend}
             </span>
-            <div className="flex items-center gap-1">
-              <TrendingUp className="w-4 h-4 text-green-600" />
-              <span className="text-sm font-bold text-green-600">{topic.trendScore}/100</span>
+            <div className="flex items-center gap-1 text-gray-500">
+              <Calendar className="w-3 h-3" />
+              <span className="text-xs">{formatDate(topic.publishedAt)}</span>
             </div>
           </div>
-          <h3 className="text-xl font-bold text-gray-900 mb-2">{topic.topic}</h3>
-        </div>
-      </div>
-
-      <div className="space-y-4">
-        <div className="bg-gradient-to-r from-orange-50 to-red-50 rounded-lg p-4">
-          <div className="flex items-start gap-2">
-            <Lightbulb className="w-5 h-5 text-orange-600 mt-0.5 flex-shrink-0" />
-            <div>
-              <h4 className="font-bold text-gray-900 mb-1">{topic.campaignIdea.title}</h4>
-              <p className="text-sm text-gray-700">{topic.campaignIdea.description}</p>
-            </div>
-          </div>
+          <h3 className="text-lg font-bold text-gray-900 mb-3 leading-tight">
+            {topic.title}
+          </h3>
         </div>
 
-        <div className="border-t border-gray-200 pt-4">
-          <div className="flex items-start gap-2 mb-3">
-            <Users className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
-            <div>
-              <h5 className="font-semibold text-gray-900 text-sm mb-1">Target Audience</h5>
-              <p className="text-sm text-gray-600">{topic.campaignIdea.targetAudience}</p>
-            </div>
+        <div className="space-y-4">
+          <div className="bg-gradient-to-r from-blue-50 to-blue-100 rounded-lg p-4 border border-blue-200">
+            <p className="text-sm text-gray-700 leading-relaxed">
+              {topic.description}
+            </p>
           </div>
 
-          <div className="flex items-start gap-2">
-            <Target className="w-5 h-5 text-purple-600 mt-0.5 flex-shrink-0" />
-            <div>
-              <h5 className="font-semibold text-gray-900 text-sm mb-1">Key Message</h5>
-              <p className="text-sm text-gray-600 italic">"{topic.campaignIdea.keyMessage}"</p>
-            </div>
+          <div className="pt-4 border-t border-gray-200">
+            <a
+              href={topic.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              className="flex items-center gap-2 text-blue-600 hover:text-blue-800 transition-colors font-medium text-sm group"
+            >
+              <ExternalLink className="w-4 h-4 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
+              <span>Read Full Article</span>
+            </a>
           </div>
         </div>
 
-        <div className="bg-gray-50 rounded-lg p-3">
-          <h5 className="font-semibold text-gray-900 text-sm mb-2">Campaign Tactics</h5>
-          <ul className="space-y-1">
-            {topic.campaignIdea.tactics.slice(0, 3).map((tactic, index) => (
-              <li key={index} className="text-xs text-gray-600 flex items-start gap-2">
-                <span className="text-blue-500 mt-0.5">•</span>
-                <span>{tactic}</span>
-              </li>
-            ))}
-            {topic.campaignIdea.tactics.length > 3 && (
-              <li className="text-xs text-blue-600 font-medium">
-                +{topic.campaignIdea.tactics.length - 3} more tactics
-              </li>
-            )}
-          </ul>
+        <div className="mt-4 text-center text-xs text-gray-500">
+          Click to {selected ? 'deselect' : 'select'} for PDF report
         </div>
-
-        <div className="bg-green-50 border border-green-200 rounded-lg p-3">
-          <h5 className="font-semibold text-green-900 text-sm mb-1">Expected Outcome</h5>
-          <p className="text-xs text-green-700">{topic.campaignIdea.expectedOutcome}</p>
-        </div>
-      </div>
-
-      <div className="mt-4 text-center text-xs text-gray-500">
-        Click to {selected ? 'deselect' : 'select'} for PDF report
       </div>
     </div>
   );

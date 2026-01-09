@@ -1,24 +1,17 @@
 import axios, { AxiosError } from 'axios';
 
-export interface CampaignTopic {
-  id: string;
-  topic: string;
-  trendScore: number;
-  category: string;
-  campaignIdea: {
-    title: string;
-    description: string;
-    targetAudience: string;
-    keyMessage: string;
-    tactics: string[];
-    expectedOutcome: string;
-  };
+export interface TrendTopic {
+  title: string;
+  description: string;
+  publishedAt: string;
+  trend: string;
+  url: string;
 }
 
 export interface TrendingTopicsResponse {
   keyword: string;
-  topics: CampaignTopic[];
-  timestamp: string;
+  brand_keywords: string[];
+  top_trends: TrendTopic[];
 }
 
 export interface ApiError {
@@ -43,13 +36,15 @@ export const getTrendingTopics = async (keyword: string): Promise<TrendingTopics
           'Content-Type': 'application/json', // optional for GET
         },
       }
-    );
+    )
 
-    if (!response.data || !response.data.topics || !Array.isArray(response.data.topics)) {
+    if (!response.data || !response.data.top_trends || !Array.isArray(response.data.top_trends)) {
       throw new Error('Invalid response format from server');
     }
 
-    console.log('responseaaa: ' + JSON.stringify(response))
+    if (!response.data.brand_keywords || !Array.isArray(response.data.brand_keywords)) {
+      throw new Error('Invalid response format from server');
+    }
 
     return response.data;
   } catch (error) {

@@ -1,14 +1,15 @@
 import { useState } from 'react';
-import { Search, Download, Sparkles, TrendingUp, Loader2 } from 'lucide-react';
+import { Search, Download, Sparkles, TrendingUp, Loader2, Tag } from 'lucide-react';
 import CampaignCard from './components/CampaignCard';
 import { getTrendingTopics } from './services/api';
 import { generateCampaignPDF } from './utils/pdfGenerator';
-import type { CampaignTopic } from './services/api';
+import type { TrendTopic } from './services/api';
 
 function App() {
   const [keyword, setKeyword] = useState('');
-  const [topics, setTopics] = useState<CampaignTopic[]>([]);
-  const [selectedTopics, setSelectedTopics] = useState<Set<string>>(new Set());
+  const [topics, setTopics] = useState<TrendTopic[]>([]);
+  const [brandKeywords, setBrandKeywords] = useState<string[]>([]);
+  const [selectedTopics, setSelectedTopics] = useState<Set<number>>(new Set());
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -23,13 +24,14 @@ function App() {
     setLoading(true);
     setError(null);
     setTopics([]);
+    setBrandKeywords([]);
     setSelectedTopics(new Set());
 
     try {
       const response = await getTrendingTopics(keyword);
-      console.log('response: ' + JSON.stringify(response))
-      setTopics(response.topics);
-      setSelectedTopics(new Set(response.topics.map(t => t.id)));
+      setTopics(response.top_trends);
+      setBrandKeywords(response.brand_keywords);
+      setSelectedTopics(new Set(response.top_trends.map((_, index) => index)));
     } catch (err) {
       setError('Failed to fetch trending topics. Please try again.');
       console.error('Error fetching topics:', err);
@@ -38,27 +40,27 @@ function App() {
     }
   };
 
-  const toggleTopicSelection = (topicId: string) => {
+  const toggleTopicSelection = (topicIndex: number) => {
     setSelectedTopics(prev => {
       const newSet = new Set(prev);
-      if (newSet.has(topicId)) {
-        newSet.delete(topicId);
+      if (newSet.has(topicIndex)) {
+        newSet.delete(topicIndex);
       } else {
-        newSet.add(topicId);
+        newSet.add(topicIndex);
       }
       return newSet;
     });
   };
 
   const handleDownloadPDF = () => {
-    const selectedTopicsList = topics.filter(t => selectedTopics.has(t.id));
+    const selectedTopicsList = topics.filter((_, index) => selectedTopics.has(index));
 
     if (selectedTopicsList.length === 0) {
       setError('Please select at least one topic to download');
       return;
     }
 
-    generateCampaignPDF(selectedTopicsList, keyword);
+    generateCampaignPDF(selectedTopicsList, brandKeywords, keyword);
   };
 
   return (
@@ -127,10 +129,29 @@ function App() {
 
         {!loading && topics.length > 0 && (
           <>
+            {brandKeywords.length > 0 && (
+              <div className="mb-8 bg-white rounded-xl shadow-lg p-6">
+                <div className="flex items-center gap-2 mb-4">
+                  <Tag className="w-5 h-5 text-blue-600" />
+                  <h3 className="text-lg font-bold text-gray-900">Brand Keywords</h3>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {brandKeywords.map((kw, index) => (
+                    <span
+                      key={index}
+                      className="px-4 py-2 bg-gradient-to-r from-blue-50 to-blue-100 text-blue-700 text-sm font-semibold rounded-full border border-blue-200"
+                    >
+                      {kw}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
             <div className="mb-8 flex items-center justify-between">
               <div>
                 <h2 className="text-2xl font-bold text-gray-900">
-                  Top Campaign Opportunities for "{keyword}"
+                  Top Trending Topics for "{keyword}"
                 </h2>
                 <p className="text-sm text-gray-600 mt-1">
                   {selectedTopics.size} of {topics.length} topics selected
@@ -147,12 +168,12 @@ function App() {
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-              {topics.map((topic) => (
+              {topics.map((topic, index) => (
                 <CampaignCard
-                  key={topic.id}
+                  key={index}
                   topic={topic}
-                  selected={selectedTopics.has(topic.id)}
-                  onToggle={() => toggleTopicSelection(topic.id)}
+                  selected={selectedTopics.has(index)}
+                  onToggle={() => toggleTopicSelection(index)}
                 />
               ))}
             </div>
