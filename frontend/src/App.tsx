@@ -64,8 +64,8 @@ function App() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-gray-100">
-      <div className="max-w-7xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
+    <div className="flex flex-col min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-gray-100">
+      <div className="flex-1 max-w-7xl mx-auto w-full px-4 py-8 sm:px-6 lg:px-8">
         <div className="text-center mb-12">
           <div className="flex items-center justify-center gap-3 mb-4">
             <Sparkles className="w-10 h-10 text-blue-600" />
@@ -129,21 +129,6 @@ function App() {
 
         {!loading && topics.length > 0 && (
           <>
-            <div className="mb-8 bg-gradient-to-r from-blue-600 to-blue-700 rounded-xl shadow-lg p-6 text-white">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="text-2xl font-bold mb-2">Analysis Complete</h3>
-                  <p className="text-blue-100">
-                    Analyzed {articleCount} articles to discover top trending topics
-                  </p>
-                </div>
-                <div className="text-right">
-                  <div className="text-4xl font-bold">{articleCount}</div>
-                  <div className="text-sm text-blue-100">Articles Analyzed</div>
-                </div>
-              </div>
-            </div>
-
             <div className="mb-8 flex items-center justify-between">
               <div>
                 <h2 className="text-2xl font-bold text-gray-900">
