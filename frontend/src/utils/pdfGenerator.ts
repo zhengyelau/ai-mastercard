@@ -1,7 +1,7 @@
-import jsPDF from 'jspdf';
+import { jsPDF } from 'jspdf';
 import type { TrendTopic } from '../services/api';
 
-export const generateCampaignPDF = (topics: TrendTopic[], brandKeywords: string[], keyword: string) => {
+export const generateCampaignPDF = (topics: TrendTopic[], articleCount: number, keyword: string) => {
   const pdf = new jsPDF({
     orientation: 'portrait',
     unit: 'mm',
@@ -27,33 +27,20 @@ export const generateCampaignPDF = (topics: TrendTopic[], brandKeywords: string[
 
   let yPosition = 55;
 
+  pdf.setFillColor(240, 249, 255);
+  pdf.roundedRect(margin, yPosition, contentWidth, 20, 3, 3, 'F');
+
   pdf.setTextColor(0, 0, 0);
-  pdf.setFontSize(16);
+  pdf.setFontSize(14);
   pdf.setFont('helvetica', 'bold');
-  pdf.text('Brand Keywords', margin, yPosition);
-  yPosition += 8;
+  pdf.text('Analysis Overview', margin + 5, yPosition + 8);
 
   pdf.setFontSize(10);
   pdf.setFont('helvetica', 'normal');
   pdf.setTextColor(60, 60, 60);
+  pdf.text(`${articleCount} articles analyzed to identify trending topics`, margin + 5, yPosition + 15);
 
-  const keywordsPerLine = 3;
-  const keywordBoxWidth = (contentWidth - 10) / keywordsPerLine;
-
-  brandKeywords.forEach((kw, index) => {
-    const col = index % keywordsPerLine;
-    const row = Math.floor(index / keywordsPerLine);
-    const xPos = margin + (col * keywordBoxWidth);
-    const yPos = yPosition + (row * 10);
-
-    pdf.setFillColor(220, 240, 255);
-    pdf.roundedRect(xPos, yPos - 5, keywordBoxWidth - 2, 8, 2, 2, 'F');
-    pdf.setTextColor(30, 64, 175);
-    pdf.text(kw, xPos + 2, yPos);
-  });
-
-  const keywordRows = Math.ceil(brandKeywords.length / keywordsPerLine);
-  yPosition += keywordRows * 10 + 15;
+  yPosition += 30;
 
   pdf.setFontSize(16);
   pdf.setFont('helvetica', 'bold');
@@ -91,54 +78,54 @@ export const generateCampaignPDF = (topics: TrendTopic[], brandKeywords: string[
     pdf.setFont('helvetica', 'normal');
     pdf.text(`Topic ${index + 1} of ${topics.length}`, pageWidth - margin - 30, 15);
 
-    const formattedDate = new Date(topic.publishedAt).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric'
-    });
-
     pdf.setFillColor(220, 252, 231);
-    pdf.roundedRect(margin, yPosition, 40, 8, 2, 2, 'F');
+    pdf.roundedRect(margin, yPosition, 50, 8, 2, 2, 'F');
     pdf.setFontSize(9);
     pdf.setFont('helvetica', 'bold');
     pdf.setTextColor(22, 163, 74);
     pdf.text(`#${topic.trend}`, margin + 2, yPosition + 5);
-
-    pdf.setFontSize(9);
-    pdf.setFont('helvetica', 'normal');
-    pdf.setTextColor(100, 100, 100);
-    pdf.text(`Published: ${formattedDate}`, margin + 45, yPosition + 5);
     yPosition += 15;
 
-    pdf.setFontSize(16);
+    pdf.setFontSize(18);
     pdf.setFont('helvetica', 'bold');
     pdf.setTextColor(0, 0, 0);
-    const titleLines = pdf.splitTextToSize(topic.title, contentWidth);
+    const titleLines = pdf.splitTextToSize(topic.trend, contentWidth);
     pdf.text(titleLines, margin, yPosition);
-    yPosition += titleLines.length * 8 + 8;
-
-    pdf.setFillColor(240, 249, 255);
-    const descHeight = 35;
-    pdf.roundedRect(margin, yPosition, contentWidth, descHeight, 3, 3, 'F');
-
-    pdf.setFontSize(10);
-    pdf.setFont('helvetica', 'normal');
-    pdf.setTextColor(60, 60, 60);
-    const descLines = pdf.splitTextToSize(topic.description, contentWidth - 10);
-    pdf.text(descLines, margin + 5, yPosition + 8);
-    yPosition += descHeight + 10;
+    yPosition += titleLines.length * 8 + 10;
 
     pdf.setFontSize(12);
     pdf.setFont('helvetica', 'bold');
     pdf.setTextColor(0, 0, 0);
-    pdf.text('Source URL', margin, yPosition);
+    pdf.text('Why It Matters', margin, yPosition);
     yPosition += 6;
 
-    pdf.setFontSize(9);
+    pdf.setFillColor(255, 251, 235);
+    const whyMattersLines = pdf.splitTextToSize(topic.why_it_matters, contentWidth - 10);
+    const whyMattersHeight = whyMattersLines.length * 6 + 10;
+    pdf.roundedRect(margin, yPosition, contentWidth, whyMattersHeight, 3, 3, 'F');
+
+    pdf.setFontSize(10);
     pdf.setFont('helvetica', 'normal');
-    pdf.setTextColor(37, 99, 235);
-    pdf.textWithLink(topic.url.substring(0, 80) + (topic.url.length > 80 ? '...' : ''), margin, yPosition, { url: topic.url });
-    yPosition += 10;
+    pdf.setTextColor(60, 60, 60);
+    pdf.text(whyMattersLines, margin + 5, yPosition + 8);
+    yPosition += whyMattersHeight + 10;
+
+    pdf.setFontSize(12);
+    pdf.setFont('helvetica', 'bold');
+    pdf.setTextColor(0, 0, 0);
+    pdf.text('Mastercard Campaign Idea', margin, yPosition);
+    yPosition += 6;
+
+    pdf.setFillColor(240, 249, 255);
+    const campaignLines = pdf.splitTextToSize(topic.mastercard_campaign_idea, contentWidth - 10);
+    const campaignHeight = campaignLines.length * 6 + 10;
+    pdf.roundedRect(margin, yPosition, contentWidth, campaignHeight, 3, 3, 'F');
+
+    pdf.setFontSize(10);
+    pdf.setFont('helvetica', 'normal');
+    pdf.setTextColor(60, 60, 60);
+    pdf.text(campaignLines, margin + 5, yPosition + 8);
+    yPosition += campaignHeight + 10;
 
     pdf.setFontSize(8);
     pdf.setTextColor(150, 150, 150);

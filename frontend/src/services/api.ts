@@ -1,16 +1,14 @@
 import axios, { AxiosError } from 'axios';
 
 export interface TrendTopic {
-  title: string;
-  description: string;
-  publishedAt: string;
   trend: string;
-  url: string;
+  why_it_matters: string;
+  mastercard_campaign_idea: string;
 }
 
 export interface TrendingTopicsResponse {
   keyword: string;
-  brand_keywords: string[];
+  article_count: number;
   top_trends: TrendTopic[];
 }
 
@@ -42,7 +40,7 @@ export const getTrendingTopics = async (keyword: string): Promise<TrendingTopics
       throw new Error('Invalid response format from server');
     }
 
-    if (!response.data.brand_keywords || !Array.isArray(response.data.brand_keywords)) {
+    if (typeof response.data.article_count !== 'number') {
       throw new Error('Invalid response format from server');
     }
 

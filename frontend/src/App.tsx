@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Search, Download, Sparkles, TrendingUp, Loader2, Tag } from 'lucide-react';
+import { Search, Download, Sparkles, TrendingUp, Loader2 } from 'lucide-react';
 import CampaignCard from './components/CampaignCard';
 import { getTrendingTopics } from './services/api';
 import { generateCampaignPDF } from './utils/pdfGenerator';
@@ -8,7 +8,7 @@ import type { TrendTopic } from './services/api';
 function App() {
   const [keyword, setKeyword] = useState('');
   const [topics, setTopics] = useState<TrendTopic[]>([]);
-  const [brandKeywords, setBrandKeywords] = useState<string[]>([]);
+  const [articleCount, setArticleCount] = useState<number>(0);
   const [selectedTopics, setSelectedTopics] = useState<Set<number>>(new Set());
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -24,13 +24,13 @@ function App() {
     setLoading(true);
     setError(null);
     setTopics([]);
-    setBrandKeywords([]);
+    setArticleCount(0);
     setSelectedTopics(new Set());
 
     try {
       const response = await getTrendingTopics(keyword);
       setTopics(response.top_trends);
-      setBrandKeywords(response.brand_keywords);
+      setArticleCount(response.article_count);
       setSelectedTopics(new Set(response.top_trends.map((_, index) => index)));
     } catch (err) {
       setError('Failed to fetch trending topics. Please try again.');
@@ -60,7 +60,7 @@ function App() {
       return;
     }
 
-    generateCampaignPDF(selectedTopicsList, brandKeywords, keyword);
+    generateCampaignPDF(selectedTopicsList, articleCount, keyword);
   };
 
   return (
@@ -129,24 +129,20 @@ function App() {
 
         {!loading && topics.length > 0 && (
           <>
-            {brandKeywords.length > 0 && (
-              <div className="mb-8 bg-white rounded-xl shadow-lg p-6">
-                <div className="flex items-center gap-2 mb-4">
-                  <Tag className="w-5 h-5 text-blue-600" />
-                  <h3 className="text-lg font-bold text-gray-900">Brand Keywords</h3>
+            <div className="mb-8 bg-gradient-to-r from-blue-600 to-blue-700 rounded-xl shadow-lg p-6 text-white">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-2xl font-bold mb-2">Analysis Complete</h3>
+                  <p className="text-blue-100">
+                    Analyzed {articleCount} articles to discover top trending topics
+                  </p>
                 </div>
-                <div className="flex flex-wrap gap-2">
-                  {brandKeywords.map((kw, index) => (
-                    <span
-                      key={index}
-                      className="px-4 py-2 bg-gradient-to-r from-blue-50 to-blue-100 text-blue-700 text-sm font-semibold rounded-full border border-blue-200"
-                    >
-                      {kw}
-                    </span>
-                  ))}
+                <div className="text-right">
+                  <div className="text-4xl font-bold">{articleCount}</div>
+                  <div className="text-sm text-blue-100">Articles Analyzed</div>
                 </div>
               </div>
-            )}
+            </div>
 
             <div className="mb-8 flex items-center justify-between">
               <div>
