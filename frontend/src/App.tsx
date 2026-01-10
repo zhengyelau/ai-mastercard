@@ -29,9 +29,9 @@ function App() {
 
     try {
       const response = await getTrendingTopics(keyword);
-      setTopics(response.top_trends);
-      setArticleCount(response.article_count);
-      setSelectedTopics(new Set(response.top_trends.map((_, index) => index)));
+      setTopics(response.trending_topics);
+      setArticleCount(response.total_topics);
+      setSelectedTopics(new Set(response.trending_topics.map((_, index) => index)));
     } catch (err) {
       setError('Failed to fetch trending topics. Please try again.');
       console.error('Error fetching topics:', err);

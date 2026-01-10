@@ -1,7 +1,7 @@
 import { jsPDF } from 'jspdf';
 import type { TrendTopic } from '../services/api';
 
-export const generateCampaignPDF = (topics: TrendTopic[], articleCount: number, keyword: string) => {
+export const generateCampaignPDF = (topics: TrendTopic[], totalTopics: number, keyword: string) => {
   const pdf = new jsPDF({
     orientation: 'portrait',
     unit: 'mm',
@@ -38,23 +38,23 @@ export const generateCampaignPDF = (topics: TrendTopic[], articleCount: number, 
   pdf.setFontSize(10);
   pdf.setFont('helvetica', 'normal');
   pdf.setTextColor(60, 60, 60);
-  pdf.text(`${articleCount} articles analyzed to identify trending topics`, margin + 5, yPosition + 15);
+  pdf.text(`${totalTopics} trending topics identified from latest coverage`, margin + 5, yPosition + 15);
 
   yPosition += 30;
 
   pdf.setFontSize(16);
   pdf.setFont('helvetica', 'bold');
   pdf.setTextColor(0, 0, 0);
-  pdf.text('Trending Topics', margin, yPosition);
+  pdf.text('Detailed Analysis', margin, yPosition);
   yPosition += 8;
 
   pdf.setFontSize(10);
   pdf.setTextColor(100, 100, 100);
-  pdf.text(`Found ${topics.length} trending topics for analysis`, margin, yPosition);
+  pdf.text(`${topics.length} topics selected for detailed review`, margin, yPosition);
   yPosition += 15;
 
   topics.forEach((topic, index) => {
-    if (index > 0 || yPosition > 150) {
+    if (yPosition > 240) {
       pdf.addPage();
       yPosition = margin;
 
@@ -76,84 +76,106 @@ export const generateCampaignPDF = (topics: TrendTopic[], articleCount: number, 
     pdf.setTextColor(0, 0, 0);
     pdf.setFontSize(10);
     pdf.setFont('helvetica', 'normal');
-    pdf.text(`Topic ${index + 1} of ${topics.length}`, pageWidth - margin - 30, 15);
+    pdf.text(`Topic ${index + 1} of ${topics.length}`, pageWidth - margin - 30, margin);
 
     pdf.setFillColor(220, 252, 231);
-    pdf.roundedRect(margin, yPosition, 50, 8, 2, 2, 'F');
-    pdf.setFontSize(9);
+    pdf.roundedRect(margin, yPosition, contentWidth, 10, 2, 2, 'F');
+    pdf.setFontSize(10);
     pdf.setFont('helvetica', 'bold');
     pdf.setTextColor(22, 163, 74);
-    pdf.text(`#${topic.trend}`, margin + 2, yPosition + 5);
+    pdf.text(`Trending Score: ${topic.trending_score.toFixed(1)}%`, margin + 2, yPosition + 6);
     yPosition += 15;
 
-    pdf.setFontSize(18);
+    pdf.setFontSize(14);
     pdf.setFont('helvetica', 'bold');
     pdf.setTextColor(0, 0, 0);
-    const titleLines = pdf.splitTextToSize(topic.trend, contentWidth);
+    const titleLines = pdf.splitTextToSize(topic.topic_name, contentWidth);
     pdf.text(titleLines, margin, yPosition);
-    yPosition += titleLines.length * 8 + 10;
+    yPosition += titleLines.length * 6 + 8;
 
-    pdf.setFillColor(245, 245, 245);
-    pdf.roundedRect(margin, yPosition, contentWidth, 18, 3, 3, 'F');
+    pdf.setFontSize(10);
+    pdf.setFont('helvetica', 'bold');
+    pdf.setTextColor(0, 0, 0);
+    pdf.text('Why It\'s Trending', margin, yPosition);
+    yPosition += 5;
+
+    pdf.setFillColor(230, 244, 255);
+    const whyLines = pdf.splitTextToSize(topic.analysis.trend_analysis.why_trending, contentWidth - 10);
+    const whyHeight = whyLines.length * 5 + 8;
+    pdf.roundedRect(margin, yPosition, contentWidth, whyHeight, 2, 2, 'F');
     pdf.setFontSize(9);
-    pdf.setFont('helvetica', 'bold');
-    pdf.setTextColor(80, 80, 80);
-    pdf.text('Source Article', margin + 5, yPosition + 6);
-
-    pdf.setFontSize(8);
     pdf.setFont('helvetica', 'normal');
-    pdf.setTextColor(60, 60, 60);
-    const cleanTitle = topic.article_sample.title.replace(' - PR Newswire', '').replace(/- [A-Za-z\s]+$/, '');
-    const articleTitleLines = pdf.splitTextToSize(cleanTitle, contentWidth - 10);
-    pdf.text(articleTitleLines.slice(0, 1), margin + 5, yPosition + 11);
-
-    const articleDate = new Date(topic.article_sample.publishedAt).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric'
-    });
-    pdf.text(`Published: ${articleDate}`, margin + 5, yPosition + 15);
-    yPosition += 25;
-
-    pdf.setFontSize(12);
-    pdf.setFont('helvetica', 'bold');
-    pdf.setTextColor(0, 0, 0);
-    pdf.text('Why It Matters', margin, yPosition);
-    yPosition += 6;
-
-    pdf.setFillColor(255, 251, 235);
-    const whyMattersLines = pdf.splitTextToSize(topic.why_it_matters, contentWidth - 10);
-    const whyMattersHeight = whyMattersLines.length * 6 + 10;
-    pdf.roundedRect(margin, yPosition, contentWidth, whyMattersHeight, 3, 3, 'F');
+    pdf.setTextColor(40, 40, 40);
+    pdf.text(whyLines, margin + 5, yPosition + 5);
+    yPosition += whyHeight + 8;
 
     pdf.setFontSize(10);
-    pdf.setFont('helvetica', 'normal');
-    pdf.setTextColor(60, 60, 60);
-    pdf.text(whyMattersLines, margin + 5, yPosition + 8);
-    yPosition += whyMattersHeight + 10;
-
-    pdf.setFontSize(12);
     pdf.setFont('helvetica', 'bold');
     pdf.setTextColor(0, 0, 0);
-    pdf.text('Mastercard Campaign Idea', margin, yPosition);
-    yPosition += 6;
+    pdf.text('Campaign Opportunity', margin, yPosition);
+    yPosition += 5;
 
-    pdf.setFillColor(240, 249, 255);
-    const campaignLines = pdf.splitTextToSize(topic.mastercard_campaign_idea, contentWidth - 10);
-    const campaignHeight = campaignLines.length * 6 + 10;
-    pdf.roundedRect(margin, yPosition, contentWidth, campaignHeight, 3, 3, 'F');
+    const campaign = topic.analysis.campaign_opportunities[0];
+    if (campaign) {
+      pdf.setFillColor(230, 255, 240);
+      const campaignLines = pdf.splitTextToSize(campaign.campaign_concept, contentWidth - 10);
+      const campaignHeight = campaignLines.length * 5 + 12;
+      pdf.roundedRect(margin, yPosition, contentWidth, campaignHeight, 2, 2, 'F');
+      pdf.setFontSize(9);
+      pdf.setFont('helvetica', 'bold');
+      pdf.setTextColor(22, 100, 50);
+      pdf.text(campaign.campaign_name, margin + 5, yPosition + 5);
+      pdf.setFont('helvetica', 'normal');
+      pdf.setTextColor(40, 40, 40);
+      pdf.text(campaignLines, margin + 5, yPosition + 10);
+      yPosition += campaignHeight + 8;
+    }
 
     pdf.setFontSize(10);
-    pdf.setFont('helvetica', 'normal');
-    pdf.setTextColor(60, 60, 60);
-    pdf.text(campaignLines, margin + 5, yPosition + 8);
-    yPosition += campaignHeight + 10;
+    pdf.setFont('helvetica', 'bold');
+    pdf.setTextColor(0, 0, 0);
+    pdf.text('Risk Assessment', margin, yPosition);
+    yPosition += 5;
 
-    pdf.setFontSize(8);
-    pdf.setTextColor(150, 150, 150);
-    pdf.text(`Generated on ${new Date().toLocaleDateString()}`, margin, pageHeight - 10);
-    pdf.text('Confidential - Mastercard Internal Use Only', pageWidth - margin - 70, pageHeight - 10);
+    pdf.setFillColor(255, 245, 230);
+    const riskLines = pdf.splitTextToSize(topic.analysis.risk_assessment.potential_risks, contentWidth - 10);
+    const riskHeight = riskLines.length * 5 + 8;
+    pdf.roundedRect(margin, yPosition, contentWidth, riskHeight, 2, 2, 'F');
+    pdf.setFontSize(9);
+    pdf.setFont('helvetica', 'normal');
+    pdf.setTextColor(40, 40, 40);
+    pdf.text(riskLines, margin + 5, yPosition + 5);
+    yPosition += riskHeight + 12;
+
+    if (topic.recent_coverage.length > 0) {
+      const article = topic.recent_coverage[0];
+      pdf.setFontSize(9);
+      pdf.setFont('helvetica', 'bold');
+      pdf.setTextColor(0, 0, 0);
+      pdf.text('Featured Article:', margin, yPosition);
+      yPosition += 4;
+
+      pdf.setFontSize(8);
+      pdf.setFont('helvetica', 'normal');
+      pdf.setTextColor(60, 60, 60);
+      const articleTitle = pdf.splitTextToSize(article.title, contentWidth - 5);
+      pdf.text(articleTitle.slice(0, 1), margin + 2, yPosition);
+      yPosition += 4;
+
+      const articleDate = new Date(article.publishedAt).toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric'
+      });
+      pdf.text(`${article.source} • ${articleDate}`, margin + 2, yPosition);
+      yPosition += 8;
+    }
   });
+
+  pdf.setFontSize(8);
+  pdf.setTextColor(150, 150, 150);
+  pdf.text(`Generated on ${new Date().toLocaleDateString()}`, margin, pageHeight - 10);
+  pdf.text('Confidential - Mastercard Internal Use Only', pageWidth - margin - 70, pageHeight - 10);
 
   const fileName = `Mastercard_Trends_${keyword}_${new Date().getTime()}.pdf`;
   pdf.save(fileName);

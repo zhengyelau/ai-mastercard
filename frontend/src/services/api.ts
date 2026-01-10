@@ -1,24 +1,62 @@
 import axios, { AxiosError } from 'axios';
 
-export interface ArticleSample {
-  description: string;
-  publishedAt: string;
-  source: string;
+export interface Article {
   title: string;
+  description: string;
   url: string;
+  source: string;
+  publishedAt: string;
+  engagement: number;
+}
+
+export interface TrendingMetrics {
+  frequency: number;
+  recent_count: number;
+  velocity: string;
+  source_quality: string;
+}
+
+export interface CampaignOpportunity {
+  campaign_name: string;
+  campaign_concept: string;
+  expected_impact: string;
+}
+
+export interface RiskAssessment {
+  potential_risks: string;
+  recommended_approach: string;
+}
+
+export interface TrendAnalysis {
+  why_trending: string;
+  relevance_to_mastercard: string;
+  target_audience: string;
+}
+
+export interface Analysis {
+  trend_analysis: TrendAnalysis;
+  campaign_opportunities: CampaignOpportunity[];
+  risk_assessment: RiskAssessment;
 }
 
 export interface TrendTopic {
-  trend: string;
-  why_it_matters: string;
-  mastercard_campaign_idea: string;
-  article_sample: ArticleSample;
+  topic_name: string;
+  source: string;
+  category: string;
+  engagement_score: number;
+  trending_score: number;
+  trending_metrics: TrendingMetrics;
+  recent_coverage: Article[];
+  analysis: Analysis;
 }
 
 export interface TrendingTopicsResponse {
   keyword: string;
-  article_count: number;
-  top_trends: TrendTopic[];
+  trending_topics: TrendTopic[];
+  total_topics: number;
+  detection_method: string;
+  analysis_criteria: string;
+  timestamp: number;
 }
 
 export interface ApiError {
@@ -26,7 +64,7 @@ export interface ApiError {
   statusCode?: number;
 }
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:5000/api';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
 
 export const getTrendingTopics = async (keyword: string): Promise<TrendingTopicsResponse> => {
   if (!keyword || keyword.trim().length === 0) {
@@ -37,19 +75,19 @@ export const getTrendingTopics = async (keyword: string): Promise<TrendingTopics
     const response = await axios.get<TrendingTopicsResponse>(
       `${API_BASE_URL}/trending-topics`,
       {
-        params: { keyword: keyword.trim() }, // send keyword as query param
-        timeout: 30000,
+        params: { keyword: keyword.trim() },
+        //timeout: 30000,
         headers: {
-          'Content-Type': 'application/json', // optional for GET
+          'Content-Type': 'application/json',
         },
       }
     )
 
-    if (!response.data || !response.data.top_trends || !Array.isArray(response.data.top_trends)) {
+    if (!response.data || !response.data.trending_topics || !Array.isArray(response.data.trending_topics)) {
       throw new Error('Invalid response format from server');
     }
 
-    if (typeof response.data.article_count !== 'number') {
+    if (typeof response.data.total_topics !== 'number') {
       throw new Error('Invalid response format from server');
     }
 
