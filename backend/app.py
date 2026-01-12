@@ -101,35 +101,7 @@ def get_articles_for_keyword(keyword, hours=24, older=False):
         print(f"  Google News: Found {len(feed.entries[:20])} articles")
     except Exception as e:
         print(f"  Google News error: {e}")
-    
-    # 3. Reddit - For social engagement metrics
-    try:
-        subreddits = ["news", "worldnews", "technology", "business", "finance"]
-        for subreddit in subreddits:
-            search_url = f"https://www.reddit.com/r/{subreddit}/search.json?q={keyword}&restrict_sr=on&sort=relevance&limit=10"
-            headers = {"User-Agent": "TrendAnalyzer/1.0"}
-            response = requests.get(search_url, headers=headers, timeout=10)
-            
-            if response.status_code == 200:
-                data = response.json()
-                for post in data.get("data", {}).get("children", []):
-                    post_data = post["data"]
-                    if post_data.get("title", "").lower().find(keyword.lower()) != -1:
-                        article_data = {
-                            "title": post_data["title"],
-                            "description": post_data.get("selftext", "")[:200],
-                            "content": post_data.get("selftext", ""),
-                            "url": f"https://reddit.com{post_data['permalink']}",
-                            "source": f"Reddit r/{subreddit}",
-                            "publishedAt": str(datetime.fromtimestamp(post_data.get("created_utc", 0))),
-                            "source_importance": 3,
-                            "is_recent": not older,
-                            "engagement_score": post_data.get("score", 0) + post_data.get("num_comments", 0) * 2
-                        }
-                        all_articles.append(article_data)
-        print(f"  Reddit: Found articles from {len(subreddits)} subreddits")
-    except Exception as e:
-        print(f"  Reddit error: {e}")
+
     
     return all_articles
 
@@ -235,7 +207,7 @@ def calculate_trending_scores(recent_articles, older_articles):
         
         source_score = sum(a.get("source_importance", 3) for a in articles) / len(articles)
         
-        engagement_score = sum(a.get("engagement_score", 0) for a in articles) * 0.5
+        engagement_score = 0
         
         if older_count > 0:
             velocity = (recent_count - older_count) / older_count
@@ -281,7 +253,7 @@ def detect_trending_topics_for_keyword(keyword):
     
     topics_with_scores.sort(key=lambda x: x["trending_score"], reverse=True)
     
-    trending_topics = [topic for topic in topics_with_scores if topic["trending_score"] > 20]
+    trending_topics = [topic for topic in topics_with_scores if topic["trending_score"] > 8]
     
     print(f"Identified {len(trending_topics)} trending topics")
     
@@ -376,37 +348,6 @@ def fetch_trending_topics():
         print(f"Total trending topics after Google News: {len(trending_topics)}")
     except Exception as e:
         print(f"Google News trending fetch failed: {e}")
-    
-    # ---- Source 3: Reddit API for trending discussions ----
-    try:
-        subreddits = ["worldnews", "news", "technology", "business", "entertainment"]
-        for subreddit in subreddits:
-            url = f"https://www.reddit.com/r/{subreddit}/hot.json?limit=10"
-            headers = {"User-Agent": "TrendAnalyzer/1.0"}
-            response = requests.get(url, headers=headers, timeout=10)
-            
-            if response.status_code == 200:
-                data = response.json()
-                for post in data["data"]["children"][:10]:
-                    if post["data"]["score"] > 100:
-                        topic_name = post["data"]["title"]
-                        topic = {
-                            "name": topic_name,
-                            "source": f"Reddit - r/{subreddit}",
-                            "category": "social",
-                            "article_count": post["data"]["score"],
-                            "recent_articles": [{
-                                "title": topic_name,
-                                "description": post["data"].get("selftext", "")[:200],
-                                "url": f"https://reddit.com{post['data']['permalink']}",
-                                "source": f"Reddit r/{subreddit}",
-                                "publishedAt": str(datetime.fromtimestamp(post["data"]["created_utc"]))
-                            }]
-                        }
-                        trending_topics.append(topic)
-        print(f"Total trending topics after Reddit: {len(trending_topics)}")
-    except Exception as e:
-        print(f"Reddit trending fetch failed: {e}")
     
     trending_topics.sort(key=lambda x: x["article_count"], reverse=True)
     
@@ -781,7 +722,7 @@ def health_check():
         },
         "features": {
             "keyword_trending_detection": "Detects truly trending topics by frequency, recency, source quality, and velocity",
-            "multi_source_analysis": "NewsAPI, Google News RSS, Reddit",
+            "multi_source_analysis": "NewsAPI, Google News RSS",
             "marketing_insights": "AI-generated Mastercard campaign opportunities",
             "caching": "15-minute cache for global trends"
         }
