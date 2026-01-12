@@ -2,11 +2,8 @@ import axios, { AxiosError } from 'axios';
 
 export interface Article {
   title: string;
-  description: string;
-  url: string;
   source: string;
   publishedAt: string;
-  engagement: number;
 }
 
 export interface TrendingMetrics {
@@ -19,6 +16,8 @@ export interface TrendingMetrics {
 export interface CampaignOpportunity {
   campaign_name: string;
   campaign_concept: string;
+  execution_plan: string;
+  mastercard_role: string;
   expected_impact: string;
 }
 
@@ -40,10 +39,10 @@ export interface Analysis {
 }
 
 export interface TrendTopic {
+  rank: number;
   topic_name: string;
   source: string;
   category: string;
-  engagement_score: number;
   trending_score: number;
   trending_metrics: TrendingMetrics;
   recent_coverage: Article[];

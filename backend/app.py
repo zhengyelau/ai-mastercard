@@ -393,41 +393,54 @@ def analyze_trending_topic(topic):
     )
     
     prompt = f"""
-    Analyze this trending topic for Mastercard marketing opportunities:
-    
-    TRENDING TOPIC: {topic['name']}
-    SOURCE: {topic['source']}
-    {trending_context}
-    
-    RECENT ARTICLES/DISCUSSIONS:
-    {articles_text}
-    
-    Based on this trending topic, provide a marketing analysis with:
-    1. Why this is trending now
-    2. Marketing opportunities for Mastercard
-    3. Specific campaign ideas
-    
-    Return ONLY valid JSON in this exact format:
-    {{
-        "trend_analysis": {{
-            "why_trending": "Explanation of why this topic is trending now",
-            "relevance_to_mastercard": "Why Mastercard should care about this trend",
-            "target_audience": "Which Mastercard audience segments would care most"
-        }},
-        "campaign_opportunities": [
+            Analyze the following LIVE trending topic and determine how Mastercard can create a marketing campaign around it.
+
+            TRENDING TOPIC: {topic['name']}
+            SOURCE: {topic['source']}
+
+            WHY IT IS TRENDING NOW:
+            - Increased news coverage in the last 24 hours compared to the previous period
+            - Velocity of discussion: {topic.get('metrics', {}).get('velocity', 'N/A')}
+            - Source quality score: {topic.get('metrics', {}).get('source_quality', 'N/A')}
+
+            RECENT COVERAGE:
+            {articles_text}
+
+            Your task:
+            1. Explain clearly WHY this topic is trending right now
+            2. Explain WHY it is relevant to Mastercard
+            3. Identify the best Mastercard audience
+            4. Propose 1–2 concrete marketing campaigns
+
+            For EACH campaign, you MUST describe:
+            - Campaign concept
+            - Execution plan (channels, format, partnerships, timing)
+            - How Mastercard is integrated (payments, rewards, experiences, data, brand role)
+            - Expected impact
+
+            Return ONLY valid JSON in this exact format:
             {{
-                "campaign_name": "Creative campaign name",
-                "campaign_concept": "Brief description of the campaign concept",
-                "expected_impact": "What this campaign could achieve for Mastercard"
+            "trend_analysis": {{
+                "why_trending": "",
+                "relevance_to_mastercard": "",
+                "target_audience": ""
+            }},
+            "campaign_opportunities": [
+                {{
+                "campaign_name": "",
+                "campaign_concept": "",
+                "execution_plan": "",
+                "mastercard_role": "",
+                "expected_impact": ""
+                }}
+            ],
+            "risk_assessment": {{
+                "potential_risks": "",
+                "recommended_approach": ""
             }}
-        ],
-        "risk_assessment": {{
-            "potential_risks": "Any risks or sensitivities Mastercard should consider",
-            "recommended_approach": "Recommended approach to leverage this trend safely"
-        }}
-    }}
-    """
-    
+            }}
+            """
+
     try:
         response = client.chat.completions.create(
             model="gpt-4o-mini",
@@ -537,6 +550,11 @@ def get_trending_topics():
                     "article_count": len(topic["articles"]),
                     "trending_score": topic["trending_score"],
                     "metrics": topic["metrics"],
+                    "why_trending_now": (
+                        f"{topic['metrics']['recent_count']} recent articles with velocity "
+                        f"{topic['metrics']['velocity']} and high source quality "
+                        f"({topic['metrics']['source_quality']})"
+                    ),
                     "recent_articles": [{
                         "title": article["title"],
                         "description": article.get("description", ""),
@@ -549,6 +567,7 @@ def get_trending_topics():
                 
                 analysis = analyze_trending_topic(formatted_topic)
                 if analysis:
+                    analysis["rank"] = i + 1
                     analyzed_topics.append(analysis)
                 
                 time.sleep(1)

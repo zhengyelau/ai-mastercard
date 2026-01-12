@@ -83,7 +83,7 @@ export const generateCampaignPDF = (topics: TrendTopic[], totalTopics: number, k
     pdf.setFontSize(10);
     pdf.setFont('helvetica', 'bold');
     pdf.setTextColor(22, 163, 74);
-    pdf.text(`Trending Score: ${topic.trending_score.toFixed(1)}%`, margin + 2, yPosition + 6);
+    pdf.text(`Rank #${topic.rank} | Trending Score: ${topic.trending_score.toFixed(1)}`, margin + 2, yPosition + 6);
     yPosition += 15;
 
     pdf.setFontSize(14);
@@ -118,16 +118,23 @@ export const generateCampaignPDF = (topics: TrendTopic[], totalTopics: number, k
     const campaign = topic.analysis.campaign_opportunities[0];
     if (campaign) {
       pdf.setFillColor(230, 255, 240);
-      const campaignLines = pdf.splitTextToSize(campaign.campaign_concept, contentWidth - 10);
-      const campaignHeight = campaignLines.length * 5 + 12;
+      let campaignContent = `${campaign.campaign_name}\n\n${campaign.campaign_concept}`;
+      const campaignLines = pdf.splitTextToSize(campaignContent, contentWidth - 10);
+      const campaignHeight = campaignLines.length * 5 + 18;
       pdf.roundedRect(margin, yPosition, contentWidth, campaignHeight, 2, 2, 'F');
       pdf.setFontSize(9);
       pdf.setFont('helvetica', 'bold');
       pdf.setTextColor(22, 100, 50);
-      pdf.text(campaign.campaign_name, margin + 5, yPosition + 5);
-      pdf.setFont('helvetica', 'normal');
+      pdf.text(campaignLines, margin + 5, yPosition + 5);
+
+      pdf.setFontSize(8);
+      pdf.setFont('helvetica', 'bold');
       pdf.setTextColor(40, 40, 40);
-      pdf.text(campaignLines, margin + 5, yPosition + 10);
+      pdf.text('Mastercard Role:', margin + 5, yPosition + campaignHeight - 10);
+      pdf.setFont('helvetica', 'normal');
+      const roleLines = pdf.splitTextToSize(campaign.mastercard_role, contentWidth - 20);
+      pdf.text(roleLines.slice(0, 1), margin + 5, yPosition + campaignHeight - 6);
+
       yPosition += campaignHeight + 8;
     }
 
