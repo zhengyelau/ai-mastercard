@@ -29,12 +29,10 @@ CORS(app, resources={r"/api/*": {"origins": ["http://localhost:5173"]}})
 
 client = OpenAI(api_key=OPENAI_API_KEY)
 
-# Cache for trending topics
-trending_cache = {
-    "data": None,
-    "timestamp": None,
-    "ttl": 900
+keyword_trending_cache = {
 }
+
+KEYWORD_CACHE_TTL = 900 # 
 
 # --------------------------
 # TRENDING DETECTION FUNCTIONS
@@ -625,6 +623,29 @@ def get_trending_topics():
     # --- NEW: If keyword provided, detect TRENDING topics about that keyword ---
     if keyword:
         try:
+            keyword_key = keyword.lower()
+            now = time.time()
+
+            # ✅ CACHE HIT (unless refresh=true)
+            if (
+                not force_refresh and
+                keyword_key in keyword_trending_cache and
+                now - keyword_trending_cache[keyword_key]["timestamp"] < KEYWORD_CACHE_TTL
+            ):
+                print(f"✅ Keyword cache HIT for '{keyword}'")
+
+                cached_data = keyword_trending_cache[keyword_key]["data"]
+                return jsonify({
+                    "keyword": keyword,
+                    "trending_topics": cached_data,
+                    "total_topics": len(cached_data),
+                    "source": "cache",
+                    "timestamp": keyword_trending_cache[keyword_key]["timestamp"]
+                })
+
+            print(f"❌ Keyword cache MISS for '{keyword}' — running detection")
+
+            # 🔍 Run full detection
             trending_topics = detect_trending_topics_for_keyword(keyword)
 
             if not trending_topics:
@@ -636,7 +657,7 @@ def get_trending_topics():
                     "analysis_criteria": "Based on frequency, recency, source importance, and velocity of coverage"
                 })
 
-            # ✅ Build payload ONCE
+            # Build payload ONCE
             formatted_topics = []
             for topic in trending_topics[:3]:
                 formatted_topics.append({
@@ -677,14 +698,20 @@ def get_trending_topics():
                     "analysis": analysis_by_rank.get(rank)
                 })
 
+            # ✅ STORE IN KEYWORD CACHE
+            keyword_trending_cache[keyword_key] = {
+                "data": analyzed_topics,
+                "timestamp": now
+            }
+
             return jsonify({
                 "keyword": keyword,
                 "trending_topics": analyzed_topics,
                 "total_topics": len(analyzed_topics),
-                "detection_method": "trending_detection",
-                "analysis_criteria": "Topics ranked by frequency, recency, source importance, and velocity",
-                "timestamp": time.time()
+                "source": "live",
+                "timestamp": now
             })
+
 
         except Exception as e:
             print(f"Trending detection failed for '{keyword}': {e}")
@@ -693,53 +720,6 @@ def get_trending_topics():
                 "trending_topics": [],
                 "total_topics": 0
             }), 500
-
-    
-    # --- ORIGINAL: No keyword, show all global trending topics ---
-    print(f"\n=== Fetching all trending topics ===")
-    
-    current_time = time.time()
-    if (not force_refresh and 
-        trending_cache["data"] and 
-        trending_cache["timestamp"] and 
-        (current_time - trending_cache["timestamp"] < trending_cache["ttl"])):
-        print("Returning cached trending topics")
-        return jsonify({
-            "trending_topics": trending_cache["data"],
-            "total_topics": len(trending_cache["data"]),
-            "source": "cache",
-            "timestamp": trending_cache["timestamp"]
-        })
-    
-    try:
-        raw_topics = fetch_trending_topics()
-        print(f"Found {len(raw_topics)} raw trending topics")
-        
-        analyzed_topics = []
-        for i, topic in enumerate(raw_topics[:5]):
-            print(f"Analyzing topic {i+1}: {topic['name'][:50]}...")
-            analysis = analyze_trending_topic(topic)
-            if analysis:
-                analyzed_topics.append(analysis)
-            time.sleep(1)
-        
-        trending_cache["data"] = analyzed_topics
-        trending_cache["timestamp"] = current_time
-        
-        return jsonify({
-            "trending_topics": analyzed_topics,
-            "total_topics": len(analyzed_topics),
-            "source": "live",
-            "timestamp": current_time
-        })
-        
-    except Exception as e:
-        print(f"Error fetching/analyzing trending topics: {e}")
-        return jsonify({
-            "error": f"Failed to fetch trending topics: {str(e)}",
-            "trending_topics": [],
-            "total_topics": 0
-        }), 500
 
 # --------------------------
 # HEALTH CHECK ENDPOINT
@@ -753,7 +733,6 @@ def health_check():
         "endpoints": {
             "/api/trending-topics?keyword=X": "Find trending topics about keyword X",
             "/api/trending-topics?keyword=X&refresh=true": "Force refresh cache",
-            "/api/analyze-keyword?keyword=X": "Analyze specific keyword (legacy)",
             "/api/health": "Health check"
         },
         "features": {
@@ -771,5 +750,4 @@ if __name__ == "__main__":
     print("Starting Mastercard Trend Analyzer Server v3.1...")
     print("Main endpoint: GET /api/trending-topics")
     print("Keyword search: GET /api/trending-topics?keyword=your_topic")
-    print("Legacy endpoint: GET /api/analyze-keyword?keyword=your_keyword")
     app.run(debug=True, host="0.0.0.0", port=8000)
