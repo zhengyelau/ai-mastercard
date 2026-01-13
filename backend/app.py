@@ -17,7 +17,7 @@ import aiohttp
 # CONFIG
 # --------------------------
 NEWS_API_KEY = '7ba4e28621ff4d1f8740421b5004fea0'
-OPENAI_API_KEY = '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' 
+OPENAI_API_KEY = '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' 
 PAGE_SIZE = 30
 MAX_TRENDING_TOPICS = 15
 
@@ -742,94 +742,6 @@ def get_trending_topics():
         }), 500
 
 # --------------------------
-# LEGACY ENDPOINT - For backward compatibility
-# --------------------------
-@app.route("/api/analyze-keyword", methods=["GET"])
-def analyze_keyword():
-    """
-    Legacy endpoint: Analyze a specific keyword
-    """
-    keyword = request.args.get("keyword", "").strip()
-    if not keyword:
-        return jsonify({"error": "Keyword parameter is required"}), 400
-    
-    print(f"\n=== Analyzing specific keyword: '{keyword}' ===")
-    
-    try:
-        encoded_query = quote_plus(keyword)
-        url = "https://newsapi.org/v2/everything"
-        params = {
-            "q": keyword,
-            "language": "en",
-            "pageSize": 10,
-            "sortBy": "relevancy",
-            "apiKey": NEWS_API_KEY
-        }
-        
-        response = requests.get(url, params=params, timeout=10)
-        response.raise_for_status()
-        data = response.json()
-        articles = data.get("articles", [])
-        
-        if not articles:
-            url = "https://newsapi.org/v2/top-headlines"
-            params = {"q": keyword, "language": "en", "pageSize": 10, "apiKey": NEWS_API_KEY}
-            response = requests.get(url, params=params, timeout=10)
-            articles = response.json().get("articles", [])
-        
-        articles_text = "\n".join(
-            f"- {a['title']}: {a.get('description', '')[:100]}..."
-            for a in articles[:5]
-        )
-        
-        prompt = f"""
-        Analyze news articles about "{keyword}" for Mastercard marketing opportunities.
-        
-        ARTICLES:
-        {articles_text}
-        
-        Provide analysis in this JSON format:
-        {{
-            "keyword": "{keyword}",
-            "current_coverage": {{
-                "summary": "Summary of current news coverage",
-                "sentiment": "Overall sentiment (positive/neutral/negative)"
-            }},
-            "marketing_opportunities": [
-                {{
-                    "opportunity": "Specific marketing opportunity",
-                    "campaign_idea": "Concrete campaign concept",
-                    "target_segment": "Which audience to target"
-                }}
-            ],
-            "competitive_landscape": "How competitors might approach this topic",
-            "recommended_action": "What Mastercard should do next"
-        }}
-        """
-        
-        response = client.chat.completions.create(
-            model="gpt-4o-mini",
-            messages=[
-                {"role": "system", "content": "You are a marketing analyst. Return valid JSON only."},
-                {"role": "user", "content": prompt}
-            ],
-            temperature=0.3,
-            max_tokens=600
-        )
-        
-        analysis = json.loads(response.choices[0].message.content.strip())
-        
-        return jsonify({
-            "analysis": analysis,
-            "sample_articles": articles[:3],
-            "article_count": len(articles)
-        })
-        
-    except Exception as e:
-        print(f"Keyword analysis failed: {e}")
-        return jsonify({"error": f"Analysis failed: {str(e)}"}), 500
-
-# --------------------------
 # HEALTH CHECK ENDPOINT
 # --------------------------
 @app.route("/api/health", methods=["GET"])
@@ -839,7 +751,6 @@ def health_check():
         "service": "Mastercard Trend Analyzer",
         "version": "3.1",
         "endpoints": {
-            "/api/trending-topics": "Get all global trending topics",
             "/api/trending-topics?keyword=X": "Find trending topics about keyword X",
             "/api/trending-topics?keyword=X&refresh=true": "Force refresh cache",
             "/api/analyze-keyword?keyword=X": "Analyze specific keyword (legacy)",
