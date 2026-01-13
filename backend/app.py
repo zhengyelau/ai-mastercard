@@ -9,12 +9,15 @@ from flask_cors import CORS
 from openai import OpenAI
 from datetime import datetime, timedelta
 import time
+import concurrent.futures
+import asyncio
+import aiohttp
 
 # --------------------------
 # CONFIG
 # --------------------------
 NEWS_API_KEY = '7ba4e28621ff4d1f8740421b5004fea0'
-OPENAI_API_KEY = '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' 
+OPENAI_API_KEY = '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' 
 PAGE_SIZE = 30
 MAX_TRENDING_TOPICS = 15
 
@@ -258,6 +261,100 @@ def detect_trending_topics_for_keyword(keyword):
     print(f"Identified {len(trending_topics)} trending topics")
     
     return trending_topics[:3]
+
+def analyze_trending_topics_batch(topics):
+    """
+    Analyze multiple trending topics in ONE LLM call.
+    Returns a dict keyed by rank.
+    """
+
+    topics_payload = []
+    for i, topic in enumerate(topics):
+        topics_payload.append({
+            "rank": i + 1,
+            "topic_name": topic["name"],
+            "source": topic["source"],
+            "trending_score": topic["trending_score"],
+            "metrics": topic["metrics"],
+            "recent_articles": [
+                {
+                    "title": a["title"],
+                    "description": a.get("description", "")[:120],
+                    "source": a.get("source", ""),
+                    "publishedAt": a.get("publishedAt", "")
+                }
+                for a in topic["recent_articles"][:3]
+            ]
+        })
+
+    prompt = f"""
+            You are a senior marketing strategist for Mastercard.
+
+            Analyze the following LIVE trending topics.
+            Each topic MUST be analyzed independently.
+
+            INPUT TOPICS (JSON):
+            {json.dumps(topics_payload, indent=2)}
+
+            For EACH topic:
+            1. Explain why it is trending now
+            2. Explain relevance to Mastercard
+            3. Identify target audience
+            4. Propose 1–2 marketing campaigns
+            5. Assess risks
+
+            Return ONLY valid JSON in this EXACT format:
+            {{
+            "topics": [
+                {{
+                "rank": 1,
+                "analysis": {{
+                    "trend_analysis": {{
+                    "why_trending": "",
+                    "relevance_to_mastercard": "",
+                    "target_audience": ""
+                    }},
+                    "campaign_opportunities": [
+                    {{
+                        "campaign_name": "",
+                        "campaign_concept": "",
+                        "execution_plan": "",
+                        "mastercard_role": "",
+                        "expected_impact": ""
+                    }}
+                    ],
+                    "risk_assessment": {{
+                    "potential_risks": "",
+                    "recommended_approach": ""
+                    }}
+                }}
+                }}
+            ]
+            }}
+            """
+
+    response = client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[
+            {
+                "role": "system",
+                "content": (
+                    "You are a marketing strategist. "
+                    "Return ONLY valid JSON. No markdown. No commentary."
+                )
+            },
+            {"role": "user", "content": prompt}
+        ],
+        temperature=0.3,
+        max_tokens=1600
+    )
+
+    raw = response.choices[0].message.content.strip()
+    parsed = json.loads(raw)
+
+    # Convert to dict for easy lookup by rank
+    return {t["rank"]: t["analysis"] for t in parsed["topics"]}
+
 
 # --------------------------
 # ORIGINAL FUNCTIONS (FOR GLOBAL TRENDING)
@@ -529,7 +626,7 @@ def get_trending_topics():
     if keyword:
         try:
             trending_topics = detect_trending_topics_for_keyword(keyword)
-            
+
             if not trending_topics:
                 return jsonify({
                     "keyword": keyword,
@@ -538,40 +635,48 @@ def get_trending_topics():
                     "total_topics": 0,
                     "analysis_criteria": "Based on frequency, recency, source importance, and velocity of coverage"
                 })
-            
-            analyzed_topics = []
-            for i, topic in enumerate(trending_topics[:3]):
-                print(f"Analyzing trending topic {i+1}: {topic['name'][:50]}...")
-                
-                formatted_topic = {
+
+            # ✅ Build payload ONCE
+            formatted_topics = []
+            for topic in trending_topics[:3]:
+                formatted_topics.append({
                     "name": topic["name"],
                     "source": "Trend Detection System",
                     "category": "trending",
                     "article_count": len(topic["articles"]),
                     "trending_score": topic["trending_score"],
                     "metrics": topic["metrics"],
-                    "why_trending_now": (
-                        f"{topic['metrics']['recent_count']} recent articles with velocity "
-                        f"{topic['metrics']['velocity']} and high source quality "
-                        f"({topic['metrics']['source_quality']})"
-                    ),
-                    "recent_articles": [{
-                        "title": article["title"],
-                        "description": article.get("description", ""),
-                        "url": article["url"],
-                        "source": article.get("source", "Unknown"),
-                        "publishedAt": article.get("publishedAt", ""),
-                        "engagement": article.get("engagement_score", 0)
-                    } for article in topic["articles"][:3]]
-                }
-                
-                analysis = analyze_trending_topic(formatted_topic)
-                if analysis:
-                    analysis["rank"] = i + 1
-                    analyzed_topics.append(analysis)
-                
-                time.sleep(1)
-            
+                    "recent_articles": [
+                        {
+                            "title": a["title"],
+                            "description": a.get("description", ""),
+                            "url": a["url"],
+                            "source": a.get("source", ""),
+                            "publishedAt": a.get("publishedAt", "")
+                        }
+                        for a in topic["articles"][:3]
+                    ]
+                })
+
+            print(f"🚀 Running ONE LLM call for {len(formatted_topics)} topics")
+
+            # 🔥 SINGLE LLM CALL
+            analysis_by_rank = analyze_trending_topics_batch(formatted_topics)
+
+            analyzed_topics = []
+            for i, topic in enumerate(formatted_topics):
+                rank = i + 1
+                analyzed_topics.append({
+                    "rank": rank,
+                    "topic_name": topic["name"],
+                    "source": topic["source"],
+                    "category": topic["category"],
+                    "trending_score": topic["trending_score"],
+                    "trending_metrics": topic["metrics"],
+                    "recent_coverage": topic["recent_articles"][:2],
+                    "analysis": analysis_by_rank.get(rank)
+                })
+
             return jsonify({
                 "keyword": keyword,
                 "trending_topics": analyzed_topics,
@@ -580,7 +685,7 @@ def get_trending_topics():
                 "analysis_criteria": "Topics ranked by frequency, recency, source importance, and velocity",
                 "timestamp": time.time()
             })
-            
+
         except Exception as e:
             print(f"Trending detection failed for '{keyword}': {e}")
             return jsonify({
@@ -588,6 +693,7 @@ def get_trending_topics():
                 "trending_topics": [],
                 "total_topics": 0
             }), 500
+
     
     # --- ORIGINAL: No keyword, show all global trending topics ---
     print(f"\n=== Fetching all trending topics ===")
