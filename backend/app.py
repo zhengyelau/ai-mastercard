@@ -16,8 +16,6 @@ load_dotenv()
 # --------------------------
 # CONFIG
 # --------------------------
-# NEWS_API_KEY = '7ba4e28621ff4d1f8740421b5004fea0'
-# OPENAI_API_KEY = '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' 
 NEWS_API_KEY = os.getenv("NEWS_API_KEY")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
