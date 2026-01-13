@@ -1,16 +1,12 @@
-# Mastercard Campaign AI Assistant
+# AI-Mastercard Frontend
 
-An AI-powered application that discovers trending topics and generates innovative marketing campaign ideas for Mastercard.
-
-## Features
-
-- **Keyword-Based Trend Analysis**: Enter any keyword (food, music, travel, etc.) to discover trending topics
-- **AI-Generated Campaign Ideas**: Get detailed marketing campaign strategies for each trending topic
-- **Interactive Card Selection**: Choose which campaigns to include in your report
-- **PDF Report Generation**: Download professionally formatted PDF reports with campaign details
-- **Mock API Integration**: Ready-to-use mock data for development and testing
-
-## Tech Stack
+## Table of Contents
+- [Prerequisites](#prerequisites)
+- [Installation](#installation)
+- [Environment Variables](#environment-variables)
+- [Running the Project](#running-the-project)
+- [API Endpoints](#api-endpoints)
+- [Contributing](#contributing)
 
 - **Frontend**: React 18 + TypeScript
 - **Styling**: Tailwind CSS
@@ -21,12 +17,12 @@ An AI-powered application that discovers trending topics and generates innovativ
 
 ## Getting Started
 
-### Prerequisites
+## Prerequisites
 
 - Node.js (v18 or higher)
 - npm or yarn
 
-### Installation
+## Installation
 
 ```bash
 npm install
