@@ -14,27 +14,24 @@
 
 ## Installation
 1. Clone this repository:
-```
+```bash
 git clone "git url"
 cd ai-mastercard/backend
 ```
 
 2. Create a virtual environment:
-```
+```bash
 python -m venv your-env-name
-
 ```
 
 3. Activate the virtual environment:
-```
+```bash
 source your-env-name/bin/activate
-
 ```
 
 4. Install dependencies:
-```
+```bash
 pip install -r requirements.txt
-
 ```
 
 ## Environment Variables
