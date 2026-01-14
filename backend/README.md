@@ -25,9 +25,15 @@ python -m venv your-env-name
 ```
 
 3. Activate the virtual environment:
+Linux:
 ```bash
 source your-env-name/bin/activate
 ```
+Window:
+```bash
+.\your-env-name\Scripts\activate
+```
+
 
 4. Install dependencies:
 ```bash
