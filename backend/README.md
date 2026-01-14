@@ -13,9 +13,8 @@
 - Flask
 
 ## Installation
-1. Clone this repository:
+1. Change directory to:
 ```bash
-git clone "git url"
 cd ai-mastercard/backend
 ```
 
