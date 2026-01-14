@@ -24,7 +24,8 @@ cd ai-mastercard/backend
 python -m venv your-env-name
 ```
 
-3. Activate the virtual environment:
+3. Activate the virtual environment:<br/>
+
 Linux:
 ```bash
 source your-env-name/bin/activate
