@@ -10,7 +10,6 @@
 
 ## Prerequisites
 - Python 3.9+
-- Flask
 
 ## Installation
 1. Change directory to:
